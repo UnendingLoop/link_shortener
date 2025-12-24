@@ -13,11 +13,12 @@ import (
 
 func (p PostgresRepo) Create(ctx context.Context, n *model.Link) error {
 	query := `INSERT INTO links (lid, shortkey, redirect, created_at)
-	VALUES (DEFAULT, $1, $2, DEFAULT)`
+	VALUES (DEFAULT, $1, $2, DEFAULT) 
+	RETURNING created_at`
 
-	_, err := p.db.ExecContext(ctx, query,
+	err := p.db.QueryRowContext(ctx, query,
 		n.ShortKey, n.Redirect,
-	)
+	).Scan(&n.CreatedAt)
 	if err != nil {
 		return err
 	}
@@ -43,8 +44,29 @@ func (p PostgresRepo) GetLIDByKey(ctx context.Context, key string) (int, error) 
 	return lid, nil
 }
 
+func (p PostgresRepo) CheckKeyIsFree(ctx context.Context, key string) (bool, error) {
+	query := `SELECT lid FROM links WHERE shortkey = $1`
+	var lid int
+	err := p.db.QueryRowContext(ctx, query,
+		key,
+	).Scan(&lid)
+	if errors.Is(err, sql.ErrNoRows) {
+		return true, nil
+	}
+
+	if err != nil {
+		return false, err
+	}
+
+	return false, nil
+}
+
 func (p PostgresRepo) GetAll(ctx context.Context, limit, offset int) ([]model.Link, error) {
-	query := `SELECT lid, shortkey, redirect, created_at FROM links ORDER BY lid ASC LIMIT $1 OFFSET $2`
+	query := `SELECT lid, shortkey, redirect, created_at 
+	FROM links 
+	ORDER BY lid ASC 
+	LIMIT $1 
+	OFFSET $2`
 	rows, err := p.db.QueryContext(ctx, query, limit, offset)
 	if err != nil {
 		return nil, err
@@ -64,7 +86,6 @@ func (p PostgresRepo) GetAll(ctx context.Context, limit, offset int) ([]model.Li
 	if rows.Err() != nil {
 		return nil, err
 	}
-
 	return links, nil
 }
 
@@ -219,11 +240,26 @@ func (p PostgresRepo) GetGroupByMonth(ctx context.Context, lid int, start, end *
 }
 
 func (p PostgresRepo) AddReferralByKey(ctx context.Context, key string, userAgent string) error {
-	query := `INSERT INTO referrals (rid, lid, created_at, useragent) VALUES (DEFAULT, $1, DEFAULT, $2)`
-	_, err := p.db.ExecContext(ctx, query, key, userAgent)
+	query := `INSERT INTO referrals (lid, useragent)
+        SELECT lid, $2
+        FROM links
+        WHERE shortkey = $1
+    `
+
+	res, err := p.db.ExecContext(ctx, query, key, userAgent)
 	if err != nil {
-		return fmt.Errorf("failed to create new referral for shortkey %q: %w", key, err)
+		return fmt.Errorf("failed to create referral for key %q: %w", key, err)
 	}
+
+	rows, err := res.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("failed to read affected rows: %w", err)
+	}
+
+	if rows == 0 {
+		return ErrNotFound // shortkey не найден
+	}
+
 	return nil
 }
 
@@ -243,4 +279,21 @@ func (p PostgresRepo) GetRedirLinkByKey(ctx context.Context, key string) (string
 		}
 	}
 	return redirLink, nil
+}
+
+func (p PostgresRepo) GetLidByKey(ctx context.Context, key string) (int, error) {
+	query := `SELECT lid FROM links WHERE shortkey = $1`
+	var lid int
+	err := p.db.QueryRowContext(ctx, query,
+		key,
+	).Scan(&lid)
+	if err != nil {
+		switch {
+		case errors.Is(err, sql.ErrNoRows):
+			return 0, ErrNotFound // 404
+		default:
+			return 0, err
+		}
+	}
+	return lid, nil
 }

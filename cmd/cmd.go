@@ -22,6 +22,8 @@ func StartApp() {
 		log.Fatalf("Failed to load envs: %s\nExiting app...", err)
 	}
 
+	time.Sleep(25 * time.Second)
+
 	// подключение к редису
 	redisAddr := appConfig.GetString("REDIS_ADDR")
 	redisPwd := appConfig.GetString("REDIS_PASSWORD")
@@ -38,7 +40,7 @@ func StartApp() {
 	}()
 
 	// Накатываем миграцию
-	if err := repository.Migrate(dbConn.Master, "./migration"); err != nil {
+	if err := repository.Migrate(dbConn.Master, "./migrations"); err != nil {
 		log.Fatalf("Failed to run migrations: %s", err)
 	}
 
@@ -55,22 +57,12 @@ func StartApp() {
 	server.GET("/ping", handlers.SimplePinger)
 	server.POST("/shorten", handlers.CreateKey)
 	server.GET("/s/:short_url", handlers.Redirect)
+	server.GET("/shorten/all", handlers.GetAll)
 	server.GET("/analytics/:short_url", handlers.GetAnalytics)
 	server.Static("/web", "./internal/web")
 
-	// 	встроенные HTTP-методы:
-	// – POST /shorten — создание новой сокращённой ссылки;
-	// – GET /s/{short_url} — переход по короткой ссылке;
-	// – GET /analytics/{short_url} — получение аналитики (число переходов, User-Agent, время переходов).
 	// Server launch
 	if err := server.Run(":8080"); err != nil {
 		log.Fatal(err)
 	}
 }
-
-/*
-Redis: key Shortlink, value OuterLink
-Analytics: no cache, фильтр по юзерагенту и времени + их комбинация
-DB: 2 related tables with cascade deletion
-UI: 3 блока: форма для создания, список всех сокращенных ссылок в базе, просмотр аналитики по 1 короткой ссылке с фильтрацией по юзерагенту и времени(возможность задавать период)
-*/

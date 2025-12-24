@@ -17,6 +17,7 @@ type ShortRepository interface {
 	GetGroupByUserAgent(ctx context.Context, lid int, start, end *time.Time, limit, offset int) (*model.AnalyticsResponse, error)
 	GetGroupByDay(ctx context.Context, lid int, start, end *time.Time, limit, offset int) (*model.AnalyticsResponse, error)
 	GetGroupByMonth(ctx context.Context, lid int, start, end *time.Time, limit, offset int) (*model.AnalyticsResponse, error)
+	CheckKeyIsFree(ctx context.Context, key string) (bool, error)
 	GetRedirLinkByKey(ctx context.Context, key string) (string, error)
 }
 

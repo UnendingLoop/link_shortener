@@ -6,7 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
-	"time"
+	"strings"
 
 	"shortener/internal/cache"
 	"shortener/internal/model"
@@ -14,13 +14,13 @@ import (
 )
 
 var (
-	ErrNoRedirLink  error = errors.New("empty link is provided for redirect")                      // 422
-	ErrKeyGen       error = errors.New("failed to generate valid shortkey. Try again later")       // 500
-	ErrKeyCheck     error = errors.New("failed to check shortkey validity. Try again later")       // 500
-	ErrBusyKey      error = errors.New("provided shortkey is not avalable. Try using another one") // 409
-	ErrCommon500    error = errors.New("something went wrong. Try again later")                    // 500
-	ErrAnalytics422 error = errors.New("incorreect query parameters for analytics request")        // 422
-	ErrKeyNotFound  error = errors.New("specified shortkey doesn't exist")                         // 404
+	ErrNoRedirLink  error = errors.New("empty link is provided for redirect")                       // 422
+	ErrKeyGen       error = errors.New("failed to generate valid shortkey. Try again later")        // 500
+	ErrKeyCheck     error = errors.New("failed to check shortkey validity. Try again later")        // 500
+	ErrBusyKey      error = errors.New("provided shortkey is not available. Try using another one") // 409
+	ErrCommon500    error = errors.New("something went wrong. Try again later")                     // 500
+	ErrAnalytics422 error = errors.New("incorreect query parameters for analytics request")         // 422
+	ErrKeyNotFound  error = errors.New("specified shortkey doesn't exist")                          // 404
 
 )
 
@@ -39,19 +39,19 @@ func (k ShortService) CreateKey(ctx context.Context, link *model.Link) (*model.L
 	}
 
 	// если юзер не предоставил свой вариант шортки, то генерируем сами
-	custom := false
+	custom := true
 	for link.ShortKey == "" {
 		link.ShortKey, _ = generateShortKey(8)
-		custom = true
+		custom = false
 	}
 
 	// проверка уникальности в БД
-	idx, err := k.repo.GetLIDByKey(ctx, link.ShortKey)
-	if err != nil && !errors.Is(err, repository.ErrNotFound) {
-		log.Println("Failed to check shortkey uniqueness:", err)
+	free, err := k.repo.CheckKeyIsFree(ctx, link.ShortKey)
+	if err != nil {
+		log.Printf("Failed to check uniqueness of a shortkey %q: %v", link.ShortKey, err)
 		return nil, ErrKeyCheck
 	}
-	if idx != -1 {
+	if !free {
 		switch custom {
 		case true:
 			return nil, ErrBusyKey
@@ -83,12 +83,12 @@ func (k ShortService) GetAll(ctx context.Context, limit, offset int) ([]model.Li
 	return links, nil
 }
 
-func (k ShortService) GetAnalytics(ctx context.Context, grouping string, key string, start, end *time.Time, limit, offset int) (*model.AnalyticsResponse, error) {
-	if grouping == "" || key == "" || start.After(*end) || limit <= 0 || offset < 0 {
+func (k ShortService) GetAnalytics(ctx context.Context, req *model.AnalyticsRequest, limit, offset int) (*model.AnalyticsResponse, error) {
+	if req.GroupBy == "" || req.Shortkey == "" || req.Start.After(*req.End) {
 		return nil, ErrAnalytics422
 	}
 	// узнаем lid для запроса
-	lid, err := k.repo.GetLIDByKey(ctx, key)
+	lid, err := k.repo.GetLIDByKey(ctx, req.Shortkey)
 	if errors.Is(err, repository.ErrNotFound) {
 		return nil, ErrKeyNotFound
 	}
@@ -98,37 +98,41 @@ func (k ShortService) GetAnalytics(ctx context.Context, grouping string, key str
 	}
 
 	// выбираем нужный тип аналитики
-	switch grouping {
+	switch req.GroupBy {
 	case "day":
-		data, err := k.repo.GetGroupByDay(ctx, lid, start, end, limit, offset)
+		data, err := k.repo.GetGroupByDay(ctx, lid, req.Start, req.End, limit, offset)
 		if err != nil {
 			log.Printf("Failed to get daily analytics: %v", err)
 			return nil, ErrCommon500
 		}
 		return data, nil
 	case "month":
-		data, err := k.repo.GetGroupByMonth(ctx, lid, start, end, limit, offset)
+		data, err := k.repo.GetGroupByMonth(ctx, lid, req.Start, req.End, limit, offset)
 		if err != nil {
 			log.Printf("Failed to get monthly analytics: %v", err)
 			return nil, ErrCommon500
 		}
 		return data, nil
 	case "useragent":
-		data, err := k.repo.GetGroupByUserAgent(ctx, lid, start, end, limit, offset)
+		data, err := k.repo.GetGroupByUserAgent(ctx, lid, req.Start, req.End, limit, offset)
 		if err != nil {
 			log.Printf("Failed to get analytics by user-agent: %v", err)
 			return nil, ErrCommon500
 		}
 		return data, nil
 	default:
-		return nil, fmt.Errorf("incorrect grouping specified: %q", grouping)
+		return nil, fmt.Errorf("incorrect grouping specified: %q", req.GroupBy)
 	}
 }
 
-func (k ShortService) GetRedirLinkByKey(ctx context.Context, key string) (string, error) {
+func (k ShortService) GetRedirLinkByKey(ctx context.Context, key string, useragent string) (string, error) {
 	// проверяем кеш
 	link, err := k.cache.GetByShortkey(ctx, key)
 	if err == nil {
+		// логируем вызов
+		if err := k.repo.AddReferralByKey(ctx, key, truncUA(useragent)); err != nil {
+			log.Printf("Failed to add referral to shortkey %q: %v\n", key, err)
+		}
 		return link, nil
 	} else {
 		if !errors.Is(err, repository.ErrNotFound) {
@@ -137,7 +141,7 @@ func (k ShortService) GetRedirLinkByKey(ctx context.Context, key string) (string
 	}
 
 	// идем в базу
-	link, err = k.GetRedirLinkByKey(ctx, key)
+	link, err = k.repo.GetRedirLinkByKey(ctx, key)
 	if err != nil {
 		switch {
 		case errors.Is(err, repository.ErrNotFound):
@@ -151,6 +155,11 @@ func (k ShortService) GetRedirLinkByKey(ctx context.Context, key string) (string
 	// кладем в кеш
 	if err := k.cache.SetByShortkey(ctx, key, link); err != nil {
 		log.Printf("Failed to cache shortkey %q: %v\n", key, err)
+	}
+
+	// логируем вызов
+	if err := k.repo.AddReferralByKey(ctx, key, truncUA(useragent)); err != nil {
+		log.Printf("Failed to add referral to shortkey %q: %v\n", key, err)
 	}
 
 	return link, nil
@@ -169,4 +178,48 @@ func generateShortKey(length int) (string, error) {
 	}
 
 	return string(b), nil
+}
+
+func truncUA(ua string) string {
+	browser := detectBrowser(ua)
+	platform := detectPlatform(ua)
+	return fmt.Sprintf("%s/%s", browser, platform)
+}
+
+func detectBrowser(ua string) string {
+	ua = strings.ToLower(ua)
+
+	switch {
+	case strings.Contains(ua, "edg/"):
+		return "Edge"
+	case strings.Contains(ua, "opr/") || strings.Contains(ua, "opera"):
+		return "Opera"
+	case strings.Contains(ua, "chrome/"):
+		return "Chrome"
+	case strings.Contains(ua, "safari/"):
+		return "Safari"
+	case strings.Contains(ua, "firefox/"):
+		return "Firefox"
+	default:
+		return "Unknown"
+	}
+}
+
+func detectPlatform(ua string) string {
+	ua = strings.ToLower(ua)
+
+	switch {
+	case strings.Contains(ua, "windows nt"):
+		return "Windows"
+	case strings.Contains(ua, "android"):
+		return "Android"
+	case strings.Contains(ua, "iphone"), strings.Contains(ua, "ipad"):
+		return "iOS"
+	case strings.Contains(ua, "mac os x"):
+		return "macOS"
+	case strings.Contains(ua, "linux"):
+		return "Linux"
+	default:
+		return "Unknown"
+	}
 }

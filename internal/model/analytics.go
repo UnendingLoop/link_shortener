@@ -3,9 +3,10 @@ package model
 import "time"
 
 type AnalyticsRequest struct { // используется для получения от клиента фильтров аналитики
-	Start   *time.Time `json:"start"`
-	End     *time.Time `json:"end"`
-	GroupBy string     `json:"groupby"` // будут 3 значения: useragent/day/month
+	Shortkey string
+	Start    *time.Time `json:"start"`
+	End      *time.Time `json:"end"`
+	GroupBy  string     `json:"groupby"` // будут 3 значения: useragent/day/month
 }
 
 // Для отдачи результата аггрегации аналитики:

@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Shortener UI</title>
+
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+
+        h1,
+        h2 {
+            margin-top: 30px;
+        }
+
+        table {
+            border-collapse: collapse;
+            width: 100%;
+            margin-top: 10px;
+        }
+
+        th,
+        td {
+            border: 1px solid #ccc;
+            padding: 6px 10px;
+            text-align: left;
+        }
+
+        button {
+            padding: 5px 10px;
+            cursor: pointer;
+        }
+
+        input,
+        select {
+            padding: 5px;
+        }
+
+        .row {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            margin-top: 10px;
+        }
+
+        .error {
+            color: red;
+        }
+
+        .success {
+            color: green;
+        }
+    </style>
+</head>
+
+<body>
+
+    <h1>URL Shortener Admin UI</h1>
+
+    <!-- ================== CREATE SHORTKEY ================== -->
+
+    <h2>1. Create shortkey</h2>
+
+    <div class="row">
+        <input id="redirectInput" type="text" size="40" placeholder="Redirect URL (required)">
+        <input id="shortkeyInput" type="text" placeholder="Custom shortkey (optional)">
+        <button onclick="createShortkey()">Create</button>
+    </div>
+
+    <div id="createResult"></div>
+
+    <!-- ================== ALL SHORTKEYS ================== -->
+
+    <h2>2. All shortkeys</h2>
+
+    <button onclick="loadAll()">Refresh</button>
+
+    <table id="linksTable">
+        <thead>
+            <tr>
+                <th>Shortkey</th>
+                <th>Redirect</th>
+                <th>Created at</th>
+            </tr>
+        </thead>
+        <tbody></tbody>
+    </table>
+
+    <!-- ================== ANALYTICS ================== -->
+
+    <h2>3. Analytics</h2>
+
+    <div class="row">
+        <label>Shortkey:</label>
+        <select id="analyticsKey"></select>
+    </div>
+
+    <div class="row">
+        <button onclick="setGrouping('useragent')">By User-Agent</button>
+        <button onclick="setGrouping('day')">By Day</button>
+        <button onclick="setGrouping('month')">By Month</button>
+    </div>
+
+    <div class="row">
+        <label>Start:</label>
+        <input type="date" id="startDate">
+        <label>End:</label>
+        <input type="date" id="endDate">
+        <button onclick="loadAnalytics()">Get analytics</button>
+    </div>
+
+    <div id="analyticsTotal" style="margin-top:10px;font-weight:bold;"></div>
+
+    <table id="analyticsTable">
+        <thead>
+            <tr></tr>
+        </thead>
+        <tbody></tbody>
+    </table>
+
+    <script>
+        let currentGrouping = 'useragent';
+
+        /* ================== CREATE ================== */
+
+        function createShortkey() {
+            const redirect = document.getElementById('redirectInput').value;
+            const shortkey = document.getElementById('shortkeyInput').value;
+
+            fetch('/shorten', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    redirect: redirect,
+                    shortkey: shortkey
+                })
+            })
+                .then(r => r.json())
+                .then(data => {
+                    const el = document.getElementById('createResult');
+                    if (data.error) {
+                        el.className = 'error';
+                        el.textContent = data.error;
+                    } else {
+                        el.className = 'success';
+                        el.textContent = 'Created shortkey: ' + data.shortkey;
+                        loadAll();
+                    }
+                });
+        }
+
+        /* ================== LOAD ALL ================== */
+
+        function loadAll() {
+            fetch('/shorten/all?limit=100')
+                .then(r => r.json())
+                .then(data => {
+                    const tbody = document.querySelector('#linksTable tbody');
+                    const select = document.getElementById('analyticsKey');
+
+                    tbody.innerHTML = '';
+                    select.innerHTML = '';
+
+                    data.forEach(link => {
+                        const tr = document.createElement('tr');
+                        tr.innerHTML = `
+                <td>${link.shortkey}</td>
+                <td>${link.redirect}</td>
+                <td>${link.created_at}</td>
+            `;
+                        tbody.appendChild(tr);
+
+                        const opt = document.createElement('option');
+                        opt.value = link.shortkey;
+                        opt.textContent = link.shortkey;
+                        select.appendChild(opt);
+                    });
+                });
+        }
+
+        /* ================== ANALYTICS ================== */
+
+        function setGrouping(g) {
+            currentGrouping = g;
+        }
+
+        function loadAnalytics() {
+            const key = document.getElementById('analyticsKey').value;
+            if (!key) return;
+
+            let url = `/analytics/${key}?grouping=${currentGrouping}`;
+
+            const start = document.getElementById('startDate').value;
+            const end = document.getElementById('endDate').value;
+
+            if (start) url += `&start=${start}`;
+            if (end) url += `&end=${end}`;
+
+            fetch(url)
+                .then(r => r.json())
+                .then(data => renderAnalytics(data));
+        }
+
+        function renderAnalytics(data) {
+            const thead = document.querySelector('#analyticsTable thead tr');
+            const tbody = document.querySelector('#analyticsTable tbody');
+
+            thead.innerHTML = '';
+            tbody.innerHTML = '';
+
+            document.getElementById('analyticsTotal').textContent =
+                `Total redirects: ${data.total}`;
+
+            thead.innerHTML = `
+        <th>${data.groupby}</th>
+        <th>Count</th>
+    `;
+
+            data.items.forEach(item => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+            <td>${item.line}</td>
+            <td>${item.count}</td>
+        `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        /* ================== INIT ================== */
+
+        loadAll();
+    </script>
+
+</body>
+
+</html>
