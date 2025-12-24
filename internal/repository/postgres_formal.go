@@ -1,13 +1,10 @@
 package repository
 
 import (
-	"context"
 	"database/sql"
 	"log"
 	"path/filepath"
 	"time"
-
-	"shortener/internal/model"
 
 	"github.com/golang-migrate/migrate/v4"
 	"github.com/golang-migrate/migrate/v4/database/postgres"
@@ -22,34 +19,6 @@ type PostgresRepo struct {
 
 func NewPostgresRepo(dbconn *dbpg.DB) ShortRepository {
 	return &PostgresRepo{db: dbconn}
-}
-
-func (p PostgresRepo) Create(ctx context.Context, n *model.Link) error {
-	return nil
-}
-
-func (p PostgresRepo) GetByKey(ctx context.Context, key string) (*model.Link, error) {
-	return nil, nil
-}
-
-func (p PostgresRepo) GetAll(ctx context.Context) ([]*model.Link, error) {
-	return nil, nil
-}
-
-func (p PostgresRepo) GetByUserAgentByPeriod(ctx context.Context, ua string, start, end time.Time) (int, error) {
-	return 0, nil
-}
-
-func (p PostgresRepo) ExistsByKey(ctx context.Context, key string) (bool, error) {
-	return false, nil
-}
-
-func (p PostgresRepo) UpdateStatusByKey(ctx context.Context, key string) error {
-	return nil
-}
-
-func (p PostgresRepo) AddReferralByKey(ctx context.Context, key string, userAgent string) error {
-	return nil
 }
 
 func ConnectWithRetries(appConfig *config.Config, retryCount int, idleTime time.Duration) *dbpg.DB {

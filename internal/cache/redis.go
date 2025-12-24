@@ -3,7 +3,6 @@ package cache
 import (
 	"context"
 	"log"
-	"shortener/internal/model"
 	"time"
 
 	"github.com/wb-go/wbf/redis"
@@ -14,7 +13,7 @@ type RedisCache struct {
 	ttl    time.Duration
 }
 
-func NewRedisCache(client *redis.Client, ttl time.Duration) KeyCache {
+func NewRedisCache(client *redis.Client, ttl time.Duration) ShortCache {
 	var rc RedisCache
 	if ttl <= 0 {
 		rc.ttl = time.Minute
@@ -26,7 +25,7 @@ func NewRedisCache(client *redis.Client, ttl time.Duration) KeyCache {
 	return &rc
 }
 
-func (r *RedisCache) SetByUID(ctx context.Context, key string, data *model.Link) error {
+func (r *RedisCache) SetByShortkey(ctx context.Context, key string, link string) error {
 	// data, err := json.Marshal(pointer)
 	// if err != nil {
 	// 	return err
@@ -36,7 +35,7 @@ func (r *RedisCache) SetByUID(ctx context.Context, key string, data *model.Link)
 	return nil
 }
 
-func (r *RedisCache) GetByUID(ctx context.Context, uid string) (*model.Link, error) {
+func (r *RedisCache) GetByShortkey(ctx context.Context, uid string) (string, error) {
 	// data, err := r.client.Get(ctx, uid)
 	// if err != nil {
 	// 	return nil, err
@@ -50,9 +49,9 @@ func (r *RedisCache) GetByUID(ctx context.Context, uid string) (*model.Link, err
 	// 	return nil, err
 	// }
 	// return &candidate, nil
-	return nil, nil
+	return "nil", nil
 }
 
-func (r *RedisCache) DeleteByUID(ctx context.Context, uid string) error {
+func (r *RedisCache) DeleteByShortkey(ctx context.Context, uid string) error {
 	return r.client.Del(ctx, uid)
 }

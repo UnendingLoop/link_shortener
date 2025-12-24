@@ -7,10 +7,10 @@ import (
 )
 
 type Handler struct {
-	svc *service.KeyService
+	svc *service.ShortService
 }
 
-func NewHandler(srv *service.KeyService) *Handler {
+func NewHandler(srv *service.ShortService) *Handler {
 	return &Handler{svc: srv}
 }
 
@@ -18,7 +18,7 @@ func (H *Handler) SimplePinger(ctx *ginext.Context) {
 	ctx.JSON(200, map[string]string{"message": "pong"})
 }
 
-func (H *Handler) Create(ctx *ginext.Context) {
+func (H *Handler) CreateKey(ctx *ginext.Context) {
 	// var req struct {
 	// 	Text   string `json:"text"`
 	// 	SendAt string `json:"send_at"` // формат "2006-01-02 15:04:05"
@@ -44,7 +44,7 @@ func (H *Handler) Create(ctx *ginext.Context) {
 	// ctx.JSON(200, map[string]string{"id": task.ID, "status": task.Status})
 }
 
-func (H *Handler) GetTask(ctx *ginext.Context) {
+func (H *Handler) Redirect(ctx *ginext.Context) {
 	// reqID, ok := ctx.Params.Get("uid")
 	// if !ok {
 	// 	ctx.JSON(400, map[string]string{"error": "invalid task uid"})
@@ -60,7 +60,7 @@ func (H *Handler) GetTask(ctx *ginext.Context) {
 	// ctx.JSON(200, task)
 }
 
-func (H *Handler) GetPendingTasks(ctx *ginext.Context) {
+func (H *Handler) GetAnalytics(ctx *ginext.Context) {
 	// tasks, err := H.svc.GetPending(ctx.Request.Context())
 	// if err != nil {
 	// 	ctx.JSON(errorChecker(err), map[string]string{"error": err.Error()})
@@ -69,42 +69,3 @@ func (H *Handler) GetPendingTasks(ctx *ginext.Context) {
 
 	// ctx.JSON(200, tasks)
 }
-
-func (H *Handler) DeleteTask(ctx *ginext.Context) {
-	// reqID, ok := ctx.Params.Get("uid")
-	// if !ok {
-	// 	ctx.JSON(400, map[string]string{"error": "task uid not specified"})
-	// 	return
-	// }
-
-	// if err := H.svc.Delete(ctx.Request.Context(), reqID); err != nil {
-	// 	ctx.JSON(errorChecker(err), map[string]string{"error": err.Error()})
-	// 	return
-	// }
-	// ctx.JSON(204, nil)
-}
-
-func (H *Handler) GetAll(ctx *ginext.Context) {
-	// tasks, err := H.svc.GetAll(ctx.Request.Context())
-	// if err != nil {
-	// 	ctx.JSON(errorChecker(err), map[string]string{"error": err.Error()})
-	// 	return
-	// }
-
-	// ctx.JSON(200, tasks)
-}
-
-// func errorChecker(err error) int {
-// 	switch {
-// 	case errors.Is(err, repository.ErrNotFound):
-// 		return 404
-// 	case errors.Is(err, service.ErrEmptyID) ||
-// 		errors.Is(err, service.ErrEmptyDescription) ||
-// 		errors.Is(err, service.ErrIncorrectTime):
-// 		return 400
-// 	case errors.Is(err, context.DeadlineExceeded):
-// 		return 504
-// 	default:
-// 		return 500
-// 	}
-// }

@@ -51,16 +51,17 @@ func StartApp() {
 	// инит сервера
 	server := ginext.New("") // empty - debug mode, release - prod mode
 	handlers := api.NewHandler(svc)
-	api := server.Group("/api")
-	notify := api.Group("/notify")
 
 	server.GET("/ping", handlers.SimplePinger)
-	notify.POST("", handlers.Create)
-	notify.GET("/:uid", handlers.GetTask)
-	notify.GET("/all", handlers.GetAll)
-	notify.DELETE("/:uid", handlers.DeleteTask)
+	server.POST("/shorten", handlers.CreateKey)
+	server.GET("/s/:short_url", handlers.Redirect)
+	server.GET("/analytics/:short_url", handlers.GetAnalytics)
 	server.Static("/web", "./internal/web")
 
+	// 	встроенные HTTP-методы:
+	// – POST /shorten — создание новой сокращённой ссылки;
+	// – GET /s/{short_url} — переход по короткой ссылке;
+	// – GET /analytics/{short_url} — получение аналитики (число переходов, User-Agent, время переходов).
 	// Server launch
 	if err := server.Run(":8080"); err != nil {
 		log.Fatal(err)

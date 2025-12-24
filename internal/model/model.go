@@ -3,18 +3,19 @@ package model
 
 import "time"
 
+const Alphabet = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
+
 type Link struct {
-	LID       uint       `json:"-"`                   //
-	ShortKey  string     `json:"shortkey,omitempty"`  // ключ сокращенной (внутренней) ссылки; используется значение клиента или генерируется
-	Redirect  string     `json:"redirect"`            // КУДА перенаправить клиента, mandatory
-	Referrals []Referral `json:"referrals,omitempty"` //
-	RentEnd   *time.Time `json:"rentend"`             // конец аренды редиректа
-	IsActive  bool       `json:"isactive"`            // флаг активности редиректа, false при наступлении конца аренды
+	LID       int       `json:"-"`                  //
+	ShortKey  string    `json:"shortkey,omitempty"` // ключ сокращенной (внутренней) ссылки; используется значение клиента или генерируется
+	Redirect  string    `json:"redirect"`           // КУДА перенаправить клиента, mandatory
+	CreatedAt time.Time `json:"created_at"`
+	// Referrals []Referral `json:"referrals,omitempty"` //
 }
 
 type Referral struct {
-	LID       uint      `json:"-"`          // внешний ключ на Link.LID
-	RID       uint      `json:"-"`          //
-	Created   time.Time `json:"time"`       // когда был переход по редиректу
-	UserAgent string    `json:"user-agent"` // какой был юзерагент у клиента
+	LID       int       `json:"-"`          // внешний ключ на Link.LID
+	RID       int       `json:"-"`          //
+	CreatedAt time.Time `json:"created_at"` // когда был переход по редиректу
+	UserAgent string    `json:"user-agent"` // какой был юзерагент у клиента в формате "Chrome/Windows"
 }
