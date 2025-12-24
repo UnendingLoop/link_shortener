@@ -4,15 +4,17 @@ package model
 import "time"
 
 type Link struct {
-	LID      uint      `gorm:"primaryKey;autoIncrement" json:"-"`              //праймари, автоинкремент, OnDelete:CASCADE - при удалении Link должны удаляться все Referal из привязанного массива
-	ShortKey string    `gorm:"not null;uniqueIndex" json:"shortkey,omitempty"` //ключ сокращенной (внутренней) ссылки; используется значение клиента или генерируется
-	OutLink  string    `gorm:"not null" json:"outlink"`                        //КУДА перенаправить клиента
-	Referals []Referal `gorm:"constraint:OnUpdate:CASCADE,OnDelete:CASCADE;foreignKey:LID;references:LID" json:"referals,omitempty"`
+	LID       uint       `json:"-"`                   //
+	ShortKey  string     `json:"shortkey,omitempty"`  // ключ сокращенной (внутренней) ссылки; используется значение клиента или генерируется
+	Redirect  string     `json:"redirect"`            // КУДА перенаправить клиента, mandatory
+	Referrals []Referral `json:"referrals,omitempty"` //
+	RentEnd   *time.Time `json:"rentend"`             // конец аренды редиректа
+	IsActive  bool       `json:"isactive"`            // флаг активности редиректа, false при наступлении конца аренды
 }
 
-type Referal struct {
-	LID       uint      `gorm:"index;not null" json:"-"`           //внешний ключ на Link.LID
-	RID       uint      `gorm:"primaryKey;autoIncrement" json:"-"` //праймари, автоинкремент
-	Timestamp time.Time `json:"time"`
-	UserAgent string    `json:"user-agent"`
+type Referral struct {
+	LID       uint      `json:"-"`          // внешний ключ на Link.LID
+	RID       uint      `json:"-"`          //
+	Created   time.Time `json:"time"`       // когда был переход по редиректу
+	UserAgent string    `json:"user-agent"` // какой был юзерагент у клиента
 }

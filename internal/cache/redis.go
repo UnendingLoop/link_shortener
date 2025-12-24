@@ -14,7 +14,7 @@ type RedisCache struct {
 	ttl    time.Duration
 }
 
-func NewRedisCache(client *redis.Client, ttl time.Duration) *RedisCache {
+func NewRedisCache(client *redis.Client, ttl time.Duration) KeyCache {
 	var rc RedisCache
 	if ttl <= 0 {
 		rc.ttl = time.Minute
