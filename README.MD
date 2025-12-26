@@ -26,11 +26,11 @@ Backend-сервис для сокращения ссылок с поддерж�
 
 Проект построен по слоистой архитектуре:
 
+```json
 handler → service → repository → database
-
             ↓
           cache
-
+```
 
 ### Слои
 
@@ -172,18 +172,14 @@ GET /analytics/:short_url
 
 **Query-параметры:**
 
+```
 Параметр	Описание
-
 grouping	day / month / useragent
-
 start	дата начала (YYYY-MM-DD), less than end, optional
-
 end	дата окончания (YYYY-MM-DD), more that start, optional
-
 limit	лимит записей
-
 offset	смещение
-
+```
 **Пример запроса:**
 
 GET /analytics/abc123?grouping=useragent&start=2025-01-01&end=2025-01-31
