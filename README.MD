@@ -27,6 +27,7 @@ Backend-сервис для сокращения ссылок с поддерж�
 Проект построен по слоистой архитектуре:
 
 handler → service → repository → database
+
             ↓
           cache
 
@@ -172,10 +173,15 @@ GET /analytics/:short_url
 **Query-параметры:**
 
 Параметр	Описание
+
 grouping	day / month / useragent
+
 start	дата начала (YYYY-MM-DD), less than end, optional
+
 end	дата окончания (YYYY-MM-DD), more that start, optional
+
 limit	лимит записей
+
 offset	смещение
 
 **Пример запроса:**
