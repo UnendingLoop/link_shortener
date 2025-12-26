@@ -2,6 +2,12 @@ package model
 
 import "time"
 
+const (
+	GroupByDay       = "day"
+	GroupByMonth     = "month"
+	GroupByUserAgent = "useragent"
+)
+
 type AnalyticsRequest struct { // используется для получения от клиента фильтров аналитики
 	Shortkey string
 	Start    *time.Time `json:"start"`

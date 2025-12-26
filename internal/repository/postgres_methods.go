@@ -84,7 +84,7 @@ func (p PostgresRepo) GetAll(ctx context.Context, limit, offset int) ([]model.Li
 	}
 
 	if rows.Err() != nil {
-		return nil, err
+		return nil, rows.Err()
 	}
 	return links, nil
 }

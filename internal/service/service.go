@@ -14,26 +14,33 @@ import (
 )
 
 var (
-	ErrNoRedirLink  error = errors.New("empty link is provided for redirect")                       // 422
-	ErrKeyGen       error = errors.New("failed to generate valid shortkey. Try again later")        // 500
-	ErrKeyCheck     error = errors.New("failed to check shortkey validity. Try again later")        // 500
-	ErrBusyKey      error = errors.New("provided shortkey is not available. Try using another one") // 409
-	ErrCommon500    error = errors.New("something went wrong. Try again later")                     // 500
-	ErrAnalytics422 error = errors.New("incorreect query parameters for analytics request")         // 422
-	ErrKeyNotFound  error = errors.New("specified shortkey doesn't exist")                          // 404
+	ErrNoRedirLink error = errors.New("empty link is provided for redirect")                       // 422
+	ErrKeyGen      error = errors.New("failed to generate valid shortkey. Try again later")        // 500
+	ErrKeyCheck    error = errors.New("failed to check shortkey validity. Try again later")        // 500
+	ErrBusyKey     error = errors.New("provided shortkey is not available. Try using another one") // 409
+	ErrCommon500   error = errors.New("something went wrong. Try again later")                     // 500
+	ErrAnalytics   error = errors.New("incorreect query parameters for analytics request")         // 422
+	ErrKeyNotFound error = errors.New("specified shortkey doesn't exist")                          // 404
 
 )
 
-type ShortService struct {
+type ShortService interface {
+	CreateKey(ctx context.Context, link *model.Link) (*model.Link, error)
+	GetRedirLinkByKey(ctx context.Context, key, ua string) (string, error)
+	GetAnalytics(ctx context.Context, req *model.AnalyticsRequest, limit, offset int) (*model.AnalyticsResponse, error)
+	GetAll(ctx context.Context, limit, offset int) ([]model.Link, error)
+}
+
+type SKService struct {
 	repo  repository.ShortRepository
 	cache cache.ShortCache
 }
 
-func NewKeyService(keyrep repository.ShortRepository, keycache cache.ShortCache) *ShortService {
-	return &ShortService{repo: keyrep, cache: keycache}
+func NewKeyService(keyrep repository.ShortRepository, keycache cache.ShortCache) ShortService {
+	return &SKService{repo: keyrep, cache: keycache}
 }
 
-func (k ShortService) CreateKey(ctx context.Context, link *model.Link) (*model.Link, error) {
+func (s SKService) CreateKey(ctx context.Context, link *model.Link) (*model.Link, error) {
 	if link.Redirect == "" {
 		return nil, ErrNoRedirLink
 	}
@@ -41,12 +48,16 @@ func (k ShortService) CreateKey(ctx context.Context, link *model.Link) (*model.L
 	// если юзер не предоставил свой вариант шортки, то генерируем сами
 	custom := true
 	for link.ShortKey == "" {
-		link.ShortKey, _ = generateShortKey(8)
+		var err error
+		link.ShortKey, err = generateShortKey(8)
+		if err != nil {
+			return nil, ErrKeyGen
+		}
 		custom = false
 	}
 
 	// проверка уникальности в БД
-	free, err := k.repo.CheckKeyIsFree(ctx, link.ShortKey)
+	free, err := s.repo.CheckKeyIsFree(ctx, link.ShortKey)
 	if err != nil {
 		log.Printf("Failed to check uniqueness of a shortkey %q: %v", link.ShortKey, err)
 		return nil, ErrKeyCheck
@@ -61,21 +72,21 @@ func (k ShortService) CreateKey(ctx context.Context, link *model.Link) (*model.L
 	}
 
 	// создаем новую запись в БД
-	if err := k.repo.Create(ctx, link); err != nil {
+	if err := s.repo.Create(ctx, link); err != nil {
 		log.Printf("Failed to insert shortkey %q into DB: %v \n", link.ShortKey, err)
 		return nil, ErrCommon500
 	}
 
 	// кладем в кеш
-	if err := k.cache.SetByShortkey(ctx, link.ShortKey, link.Redirect); err != nil {
+	if err := s.cache.SetByShortkey(ctx, link.ShortKey, link.Redirect); err != nil {
 		log.Printf("Failed to cache shortkey %q: %v\n", link.ShortKey, err)
 	}
 
 	return link, nil
 }
 
-func (k ShortService) GetAll(ctx context.Context, limit, offset int) ([]model.Link, error) {
-	links, err := k.repo.GetAll(ctx, limit, offset)
+func (s SKService) GetAll(ctx context.Context, limit, offset int) ([]model.Link, error) {
+	links, err := s.repo.GetAll(ctx, limit, offset)
 	if err != nil {
 		log.Println("Failed to get []links from DB:", err)
 		return nil, ErrCommon500
@@ -83,12 +94,16 @@ func (k ShortService) GetAll(ctx context.Context, limit, offset int) ([]model.Li
 	return links, nil
 }
 
-func (k ShortService) GetAnalytics(ctx context.Context, req *model.AnalyticsRequest, limit, offset int) (*model.AnalyticsResponse, error) {
-	if req.GroupBy == "" || req.Shortkey == "" || req.Start.After(*req.End) {
-		return nil, ErrAnalytics422
+func (s SKService) GetAnalytics(ctx context.Context, req *model.AnalyticsRequest, limit, offset int) (*model.AnalyticsResponse, error) {
+	if req.GroupBy == "" || req.Shortkey == "" {
+		return nil, fmt.Errorf("%w: grouping or shortkey is empty", ErrAnalytics)
 	}
+	if req.Start != nil && req.End != nil && req.Start.After(*req.End) {
+		return nil, fmt.Errorf("%w: start-date must be before end-date", ErrAnalytics)
+	}
+
 	// узнаем lid для запроса
-	lid, err := k.repo.GetLIDByKey(ctx, req.Shortkey)
+	lid, err := s.repo.GetLIDByKey(ctx, req.Shortkey)
 	if errors.Is(err, repository.ErrNotFound) {
 		return nil, ErrKeyNotFound
 	}
@@ -99,22 +114,22 @@ func (k ShortService) GetAnalytics(ctx context.Context, req *model.AnalyticsRequ
 
 	// выбираем нужный тип аналитики
 	switch req.GroupBy {
-	case "day":
-		data, err := k.repo.GetGroupByDay(ctx, lid, req.Start, req.End, limit, offset)
+	case model.GroupByDay:
+		data, err := s.repo.GetGroupByDay(ctx, lid, req.Start, req.End, limit, offset)
 		if err != nil {
 			log.Printf("Failed to get daily analytics: %v", err)
 			return nil, ErrCommon500
 		}
 		return data, nil
-	case "month":
-		data, err := k.repo.GetGroupByMonth(ctx, lid, req.Start, req.End, limit, offset)
+	case model.GroupByMonth:
+		data, err := s.repo.GetGroupByMonth(ctx, lid, req.Start, req.End, limit, offset)
 		if err != nil {
 			log.Printf("Failed to get monthly analytics: %v", err)
 			return nil, ErrCommon500
 		}
 		return data, nil
-	case "useragent":
-		data, err := k.repo.GetGroupByUserAgent(ctx, lid, req.Start, req.End, limit, offset)
+	case model.GroupByUserAgent:
+		data, err := s.repo.GetGroupByUserAgent(ctx, lid, req.Start, req.End, limit, offset)
 		if err != nil {
 			log.Printf("Failed to get analytics by user-agent: %v", err)
 			return nil, ErrCommon500
@@ -125,12 +140,12 @@ func (k ShortService) GetAnalytics(ctx context.Context, req *model.AnalyticsRequ
 	}
 }
 
-func (k ShortService) GetRedirLinkByKey(ctx context.Context, key string, useragent string) (string, error) {
+func (s SKService) GetRedirLinkByKey(ctx context.Context, key string, useragent string) (string, error) {
 	// проверяем кеш
-	link, err := k.cache.GetByShortkey(ctx, key)
+	link, err := s.cache.GetByShortkey(ctx, key)
 	if err == nil {
 		// логируем вызов
-		if err := k.repo.AddReferralByKey(ctx, key, truncUA(useragent)); err != nil {
+		if err := s.repo.AddReferralByKey(ctx, key, truncUA(useragent)); err != nil {
 			log.Printf("Failed to add referral to shortkey %q: %v\n", key, err)
 		}
 		return link, nil
@@ -141,7 +156,7 @@ func (k ShortService) GetRedirLinkByKey(ctx context.Context, key string, userage
 	}
 
 	// идем в базу
-	link, err = k.repo.GetRedirLinkByKey(ctx, key)
+	link, err = s.repo.GetRedirLinkByKey(ctx, key)
 	if err != nil {
 		switch {
 		case errors.Is(err, repository.ErrNotFound):
@@ -153,12 +168,12 @@ func (k ShortService) GetRedirLinkByKey(ctx context.Context, key string, userage
 	}
 
 	// кладем в кеш
-	if err := k.cache.SetByShortkey(ctx, key, link); err != nil {
+	if err := s.cache.SetByShortkey(ctx, key, link); err != nil {
 		log.Printf("Failed to cache shortkey %q: %v\n", key, err)
 	}
 
 	// логируем вызов
-	if err := k.repo.AddReferralByKey(ctx, key, truncUA(useragent)); err != nil {
+	if err := s.repo.AddReferralByKey(ctx, key, truncUA(useragent)); err != nil {
 		log.Printf("Failed to add referral to shortkey %q: %v\n", key, err)
 	}
 

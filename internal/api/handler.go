@@ -15,10 +15,10 @@ import (
 const layoutDate = "2006-01-02"
 
 type Handler struct {
-	svc *service.ShortService
+	svc service.ShortService
 }
 
-func NewHandler(srv *service.ShortService) *Handler {
+func NewHandler(srv service.ShortService) *Handler {
 	return &Handler{svc: srv}
 }
 
@@ -37,6 +37,7 @@ func (h *Handler) CreateKey(ctx *ginext.Context) {
 	newLink, err := h.svc.CreateKey(ctx.Request.Context(), newLink)
 	if err != nil {
 		ctx.JSON(defineCode(err), map[string]string{"error": err.Error()})
+		return
 	}
 
 	ctx.JSON(201, newLink)
@@ -51,6 +52,7 @@ func (h *Handler) Redirect(ctx *ginext.Context) {
 	redir, err := h.svc.GetRedirLinkByKey(ctx.Request.Context(), shortKey, ctx.Request.UserAgent())
 	if err != nil {
 		ctx.JSON(defineCode(err), map[string]string{"error": err.Error()})
+		return
 	}
 
 	ctx.Redirect(301, redir)
@@ -115,10 +117,11 @@ func (h *Handler) GetAnalytics(ctx *ginext.Context) {
 		}
 	}
 
-	// идем в базу
+	// идем в сервис
 	data, err := h.svc.GetAnalytics(ctx.Request.Context(), req, limit, offset)
 	if err != nil {
 		ctx.JSON(defineCode(err), map[string]string{"error": err.Error()})
+		return
 	}
 
 	ctx.JSON(200, data)
@@ -143,6 +146,7 @@ func (h *Handler) GetAll(ctx *ginext.Context) {
 	data, err := h.svc.GetAll(ctx.Request.Context(), limit, offset)
 	if err != nil {
 		ctx.JSON(defineCode(err), map[string]string{"error": err.Error()})
+		return
 	}
 
 	ctx.JSON(200, data)
@@ -152,7 +156,7 @@ func defineCode(err error) int {
 	switch {
 	case errors.Is(err, repository.ErrNotFound) || errors.Is(err, service.ErrKeyNotFound):
 		return 404
-	case errors.Is(err, service.ErrAnalytics422) || errors.Is(err, service.ErrNoRedirLink):
+	case errors.Is(err, service.ErrAnalytics) || errors.Is(err, service.ErrNoRedirLink):
 		return 422
 	case errors.Is(err, service.ErrBusyKey):
 		return 409

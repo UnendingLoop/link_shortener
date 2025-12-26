@@ -9,8 +9,7 @@ type Link struct {
 	LID       int       `json:"-"`                  //
 	ShortKey  string    `json:"shortkey,omitempty"` // ключ сокращенной (внутренней) ссылки; используется значение клиента или генерируется
 	Redirect  string    `json:"redirect"`           // КУДА перенаправить клиента, mandatory
-	CreatedAt time.Time `json:"created_at"`
-	// Referrals []Referral `json:"referrals,omitempty"` //
+	CreatedAt time.Time `json:"created_at"`         // создается только на стороне сервера
 }
 
 type Referral struct {
