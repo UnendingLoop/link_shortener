@@ -4,10 +4,10 @@ import (
 	"log"
 	"time"
 
-	"shortener/internal/api"
-	"shortener/internal/cache"
-	"shortener/internal/repository"
-	"shortener/internal/service"
+	"github.com/UnendingLoop/link_shortener/internal/api"
+	"github.com/UnendingLoop/link_shortener/internal/cache"
+	"github.com/UnendingLoop/link_shortener/internal/repository"
+	"github.com/UnendingLoop/link_shortener/internal/service"
 
 	"github.com/wb-go/wbf/config"
 	"github.com/wb-go/wbf/ginext"

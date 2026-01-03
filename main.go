@@ -1,6 +1,6 @@
 package main
 
-import "shortener/cmd"
+import "github.com/UnendingLoop/link_shortener/cmd"
 
 func main() {
 	cmd.StartApp()

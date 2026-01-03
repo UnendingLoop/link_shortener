@@ -3,7 +3,7 @@ package api
 import (
 	"context"
 
-	"shortener/internal/model"
+	"github.com/UnendingLoop/link_shortener/internal/model"
 )
 
 type mockShortService struct {

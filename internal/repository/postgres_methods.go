@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"shortener/internal/model"
+	"github.com/UnendingLoop/link_shortener/internal/model"
 )
 
 func (p PostgresRepo) Create(ctx context.Context, n *model.Link) error {

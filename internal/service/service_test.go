@@ -4,8 +4,8 @@ import (
 	"context"
 	"testing"
 
-	"shortener/internal/model"
-	"shortener/internal/repository"
+	"github.com/UnendingLoop/link_shortener/internal/model"
+	"github.com/UnendingLoop/link_shortener/internal/repository"
 
 	"github.com/stretchr/testify/require"
 )

@@ -8,7 +8,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"shortener/internal/model"
+	"github.com/UnendingLoop/link_shortener/internal/model"
 
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/require"

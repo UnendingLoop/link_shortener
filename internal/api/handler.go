@@ -5,9 +5,9 @@ import (
 	"strconv"
 	"time"
 
-	"shortener/internal/model"
-	"shortener/internal/repository"
-	"shortener/internal/service"
+	"github.com/UnendingLoop/link_shortener/internal/model"
+	"github.com/UnendingLoop/link_shortener/internal/repository"
+	"github.com/UnendingLoop/link_shortener/internal/service"
 
 	"github.com/wb-go/wbf/ginext"
 )

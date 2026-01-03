@@ -6,7 +6,7 @@ import (
 	"log"
 	"time"
 
-	"shortener/internal/repository"
+	"github.com/UnendingLoop/link_shortener/internal/repository"
 
 	"github.com/wb-go/wbf/redis"
 )

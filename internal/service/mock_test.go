@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	"shortener/internal/model"
+	"github.com/UnendingLoop/link_shortener/internal/model"
 )
 
 // мок репозитоиря

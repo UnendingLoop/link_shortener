@@ -8,9 +8,9 @@ import (
 	"log"
 	"strings"
 
-	"shortener/internal/cache"
-	"shortener/internal/model"
-	"shortener/internal/repository"
+	"github.com/UnendingLoop/link_shortener/internal/cache"
+	"github.com/UnendingLoop/link_shortener/internal/model"
+	"github.com/UnendingLoop/link_shortener/internal/repository"
 )
 
 var (

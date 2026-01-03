@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"shortener/internal/model"
+	"github.com/UnendingLoop/link_shortener/internal/model"
 
 	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/stretchr/testify/require"

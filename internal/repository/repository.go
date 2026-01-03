@@ -6,7 +6,7 @@ import (
 	"errors"
 	"time"
 
-	"shortener/internal/model"
+	"github.com/UnendingLoop/link_shortener/internal/model"
 )
 
 type ShortRepository interface {
